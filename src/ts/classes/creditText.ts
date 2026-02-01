@@ -17,14 +17,14 @@ export class CreditText {
   constructor(x:number, y: number) {
 
     this.groundText = new Text(this.copy, {
-      fontFamily: "Roboto",
+      fontFamily: "SOTU Pinyin",
       fontSize: 14,
       fill: this.groundColor,
       // stroke: this.groundColor,
       align: "left",
     });
     this.spaceText = new Text(this.copy, {
-      fontFamily: "Roboto",
+      fontFamily: "SOTU Pinyin",
       fontSize: 14,
       fill: this.spaceColor,
       // stroke: this.spaceColor,
@@ -41,6 +41,11 @@ export class CreditText {
 
     this.container.addChild(this.groundText, this.spaceText);
     
+    this.container.x = x;
+    this.container.y = y;
+  }
+
+  public setPosition(x: number, y: number) {
     this.container.x = x;
     this.container.y = y;
   }

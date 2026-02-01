@@ -5,9 +5,9 @@
   "main": "gulpfile.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "gulp",
-    "build": "gulp",
-    "build:prod": "gulp compress"
+    "start": "gulp dev",
+    "build": "gulp build",
+    "build:prod": "gulp build:prod"
   },
   "author": "",
   "license": "ISC",
@@ -29,6 +29,7 @@
     "is-phone": "^2.0.0",
     "ismobilejs": "^1.1.1",
     "numeral": "^2.0.6",
+    "pinyin-pro": "^3.28.0",
     "pixi-filters": "^3.1.1",
     "pixi-pause": "^1.0.3",
     "pixi.js-legacy": "^5.3.3",
@@ -39,7 +40,7 @@
     "typescript": "^3.7.5",
     "typings": "^2.1.1",
     "uglify-es": "^3.3.9",
-    "uglify-js": "git+https://github.com/mishoo/UglifyJS2.git#harmony",
+    "uglify-js": "^3.17.4",
     "vinyl-source-stream": "^2.0.0",
     "watchify": "^3.11.0"
   },
@@ -48,6 +49,7 @@
     "gulp-shell": "^0.8.0",
     "gulp-uglify": "^3.0.2",
     "tsify": "^4.0.1",
+    "ttf2woff2": "^8.0.0",
     "webpack-bundle-analyzer": "^3.6.1",
     "webpack-cli": "^3.3.11"
   }

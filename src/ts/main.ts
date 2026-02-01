@@ -10,6 +10,7 @@ import { CreditText } from "./classes/creditText";
 import { pad } from "./helpers/pad";
 import { E } from "./helpers/e";
 import { map } from "./helpers/map";
+import { toPinyinDisplayFromHanzi } from "./helpers/trilingual";
 
 import { Tweenable } from "shifty";
 
@@ -20,6 +21,72 @@ import isMobile from 'ismobilejs';
 declare var ldBar: any;
 let hasPickedLang = false;
 let allHighTextures;
+
+const ua = window.navigator.userAgent || "";
+const isWeChat = /MicroMessenger/i.test(ua);
+const isIOS =
+  /iPad|iPhone|iPod/i.test(ua) ||
+  // iPadOS 13+ reports as Mac but with touch points
+  (window.navigator.platform === "MacIntel" && (window.navigator as any).maxTouchPoints > 1);
+const isIPad =
+  /iPad/i.test(ua) ||
+  (window.navigator.platform === "MacIntel" &&
+    (window.navigator as any).maxTouchPoints > 1 &&
+    Math.max(screen.width, screen.height) >= 1024);
+
+document.documentElement.classList.toggle("is-ios", isIOS);
+document.documentElement.classList.toggle("is-ipad", isIPad);
+document.documentElement.classList.toggle("is-wechat", isWeChat);
+
+function updateOrientationClass() {
+  const landscape = window.matchMedia?.("(orientation: landscape)")?.matches ?? window.innerWidth > window.innerHeight;
+  document.documentElement.classList.toggle("is-landscape", landscape);
+  document.documentElement.classList.toggle("is-portrait", !landscape);
+}
+
+function updateVhVar() {
+  const vv: any = (window as any).visualViewport;
+  const height = (vv?.height ?? window.innerHeight);
+  const vh = height * 0.01;
+  document.documentElement.style.setProperty("--vh", `${vh}px`);
+}
+
+function throttle<T extends (...args: any[]) => void>(fn: T, waitMs: number): T {
+  let last = 0;
+  let timer: any = null;
+  return function (this: any, ...args: any[]) {
+    const now = Date.now();
+    const remaining = waitMs - (now - last);
+    if (remaining <= 0) {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      last = now;
+      fn.apply(this, args);
+      return;
+    }
+    if (!timer) {
+      timer = setTimeout(() => {
+        timer = null;
+        last = Date.now();
+        fn.apply(this, args);
+      }, remaining);
+    }
+  } as any as T;
+}
+
+updateOrientationClass();
+updateVhVar();
+
+const onViewportChanged = throttle(() => {
+  updateOrientationClass();
+  updateVhVar();
+}, 150);
+
+window.addEventListener("resize", onViewportChanged, { passive: true } as any);
+window.addEventListener("orientationchange", () => setTimeout(onViewportChanged, 250), { passive: true } as any);
+(window as any).visualViewport?.addEventListener?.("resize", onViewportChanged, { passive: true } as any);
 
 const titles = [
   'The Scale of the Universe 2',
@@ -47,6 +114,47 @@ const titles = [
 const titleEl = document.getElementById("title");
 const hoverTitleEl = document.getElementById("hoverTitle");
 let hoverTimeout;
+
+function clearElement(el: Element) {
+  while (el.firstChild) el.removeChild(el.firstChild);
+}
+
+function setTrilingualElement(el: Element, hanzi: string, english: string) {
+  clearElement(el);
+
+  const wrap = document.createElement("span");
+  wrap.className = "trilingual";
+
+  const pinyin = document.createElement("span");
+  pinyin.className = "pinyin-text";
+  pinyin.textContent = toPinyinDisplayFromHanzi(hanzi);
+
+  const zh = document.createElement("span");
+  zh.className = "hanzi-text";
+  zh.textContent = hanzi;
+
+  const en = document.createElement("span");
+  en.className = "english-text";
+  en.textContent = english;
+
+  wrap.appendChild(pinyin);
+  wrap.appendChild(zh);
+  wrap.appendChild(en);
+
+  el.appendChild(wrap);
+}
+
+async function ensureFontsLoaded() {
+  const fontSet: any = (document as any).fonts;
+  if (!fontSet?.load) return;
+
+  try {
+    await fontSet.load('16px "SOTU Pinyin"');
+    if (fontSet.ready) await fontSet.ready;
+  } catch (e) {
+    // ignore font loading failures; the app still runs with fallbacks
+  }
+}
 // window['setTitle'] = (idx) => {
 //   if (hoverTimeout) 
 //     clearTimeout(hoverTimeout);
@@ -181,7 +289,13 @@ loader.load(async (loader, resources) => {
 
   langWrapper.style.visibility = 'visible';
 
+  await ensureFontsLoaded();
+
   let app;
+  let slider: Slider | undefined;
+  let universe: Universe | undefined;
+  let scaleText: ScaleText | undefined;
+  let creditText: CreditText | undefined;
 
   try {
     app = new PIXI.Application({
@@ -219,14 +333,53 @@ loader.load(async (loader, resources) => {
   const w: number = app.renderer.width;
   const h: number = app.renderer.height;
   
-  let slider = new Slider(app, w, h, globalResolution, onChange, onHandleClicked);
+  slider = new Slider(app, w, h, globalResolution, onChange, onHandleClicked);
   slider.init();
   
-  let universe = new Universe(0, slider, app);
+  universe = new Universe(0, slider, app);
   
-  let scaleText = new ScaleText((w * 0.9) / globalResolution, (slider.topY - 40), "0");
+  scaleText = new ScaleText((w * 0.9) / globalResolution, (slider.topY - 40), "0");
 
-  let creditText = new CreditText(w*0.07, h - (100 + (h*0.05)) - 40);
+  creditText = new CreditText(w*0.07, h - (100 + (h*0.05)) - 40);
+
+  const onAppResize = throttle(() => {
+    try {
+      updateVhVar();
+      updateOrientationClass();
+
+      // PIXI usually handles resizeTo, but iOS/WeChat can be inconsistent with visualViewport changes.
+      const nextW = frame.offsetWidth;
+      const nextH = frame.offsetHeight;
+      if (nextW > 0 && nextH > 0) {
+        app.renderer.resize(nextW, nextH);
+      }
+
+      const rw = app.renderer.width;
+      const rh = app.renderer.height;
+
+      slider?.resize(rw, rh, globalResolution);
+      universe?.resizeViewport();
+      scaleText?.setPosition((rw * 0.9) / globalResolution, (slider?.topY ?? 0) - 40);
+      creditText?.setPosition(rw * 0.07, rh - (100 + (rh * 0.05)) - 40);
+    } catch (e) {
+      // ignore resize errors on older browsers
+    }
+  }, 200);
+
+  window.addEventListener("resize", onAppResize, { passive: true } as any);
+  window.addEventListener("orientationchange", () => setTimeout(onAppResize, 350), { passive: true } as any);
+  (window as any).visualViewport?.addEventListener?.("resize", onAppResize, { passive: true } as any);
+
+  // WeChat iOS webview is prone to broken canvas sizing / dialog positioning after rotation.
+  // A controlled reload is the most reliable fix for older iPad devices.
+  if (isIPad && isWeChat) {
+    let reloadTimer: any;
+    window.addEventListener("orientationchange", () => {
+      if (!hasPickedLang) return;
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => location.reload(), 500);
+    });
+  }
 
   const highLoader = new PIXI.Loader();
 
@@ -289,9 +442,18 @@ loader.load(async (loader, resources) => {
   } 
 
   window["setLang"] = async (btnClass, langIdx) => {
-    const textData = (
-      await (await fetch(`data/languages/l${langIdx}.txt`)).text()
-    ).split("\n").map(x => x.replace(/\r?\n|\r/g, ''));
+    const isChinese = langIdx === 4 || langIdx === 10;
+
+    const [textData, englishTextData] = await Promise.all([
+      (await (await fetch(`data/languages/l${langIdx}.txt`)).text())
+        .split("\n")
+        .map((x) => x.replace(/\r?\n|\r/g, "")),
+      isChinese
+        ? (await (await fetch(`data/languages/l0.txt`)).text())
+            .split("\n")
+            .map((x) => x.replace(/\r?\n|\r/g, ""))
+        : Promise.resolve(null),
+    ]);
 
     const hqToggle:any = document.querySelector('#hqToggle');
 
@@ -348,7 +510,11 @@ loader.load(async (loader, resources) => {
     // clearTimeout(titleCaroselTimeout);
     // fadeIn.stop(true);
     // fadeOut.stop(true);
-    titleEl.innerHTML = textData[619]
+    if (isChinese && englishTextData) {
+      setTrilingualElement(titleEl, textData[619], englishTextData[619]);
+    } else {
+      titleEl.innerHTML = textData[619];
+    }
     titleEl.style.opacity = '1';
 
     const startButtonText = textData[622];
@@ -357,15 +523,26 @@ loader.load(async (loader, resources) => {
     const startButton = document.querySelector('#startBtn');
     const translationCredit = document.querySelector('#translationCredit');
 
-    startButton.innerHTML = startButtonText;
+    if (isChinese && englishTextData) {
+      setTrilingualElement(startButton, startButtonText, englishTextData[622]);
+    } else {
+      startButton.innerHTML = startButtonText;
+    }
     translationCredit.innerHTML = translationCreditText;
 
     // document.getElementById('startBtn').innerHTML = textData[619]
-    document.getElementById('moveSliderText').innerHTML = textData[620]
-    document.getElementById('clickObjectText').innerHTML = textData[621]
+    if (isChinese && englishTextData) {
+      setTrilingualElement(document.getElementById("moveSliderText"), textData[620], englishTextData[620]);
+      setTrilingualElement(document.getElementById("clickObjectText"), textData[621], englishTextData[621]);
+    } else {
+      document.getElementById('moveSliderText').innerHTML = textData[620]
+      document.getElementById('clickObjectText').innerHTML = textData[621]
+    }
     // document.getElementById('startTitle').innerHtml = textData[619]
 
-    await universe.createItems(resources, textData);
+    await ensureFontsLoaded();
+
+    await universe.createItems(resources, textData, englishTextData || undefined);
 
     slider.setPercent(map(0, -35, 27, 0, 1));
     universe.prevZoom = 0;

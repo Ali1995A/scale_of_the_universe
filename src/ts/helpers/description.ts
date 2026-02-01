@@ -12,7 +12,7 @@ export function getGraphics (visualLocation, textDatum, extraText, units: string
 
     
     const baseStyle = {
-      fontFamily: 'Roboto',
+      fontFamily: "SOTU Pinyin",
       align: 'left', 
       fill: 0x000000, 
       wordWrapWidth: w - (margin * 2) ,

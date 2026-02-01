@@ -54,6 +54,7 @@ export class Slider {
   private h: number;
   public handleW: number;
   private tweenable: Tweenable;
+  private tickerAttached: boolean = false;
 
   // private autopilot = false;
   // private autopilotInterval: any;
@@ -121,6 +122,24 @@ export class Slider {
     this.container.addChild(background, handle)
 
     return this.container;
+  }
+
+  public resize(w: number, h: number, globalRes: number) {
+    const percent =
+      typeof this.currentPercent === "number" && Number.isFinite(this.currentPercent)
+        ? this.currentPercent
+        : 0;
+
+    this.w = w / globalRes;
+    this.h = h / globalRes;
+
+    this.widthPixels = this.w * WIDTH_PERCENT;
+    this.handleWidthPixels = this.w * HANDLE_WIDTH_PERCENT;
+    this.scaleWidthPixels = this.widthPixels - this.handleWidthPixels;
+    this.margin = (this.w - this.widthPixels) / 2;
+
+    this.init();
+    this.setPercent(percent);
   }
 
 
@@ -417,6 +436,8 @@ export class Slider {
   }
 
   handleAnim() {
+    if (this.tickerAttached) return;
+    this.tickerAttached = true;
 
     let frameCount = 0;
     let prevDX = 0;

@@ -13,10 +13,15 @@ export class ScaleText {
   private textColor = 0x000000;
   private textColorSpace = 0xFFFFFF;
 
+  private baseX: number;
+  private baseY: number;
+
   constructor(x:number, y: number, text: string) {
+    this.baseX = x;
+    this.baseY = y;
 
     this.baseTextGround = new Text('10', {
-      fontFamily: "Roboto",
+      fontFamily: "SOTU Pinyin",
       fontSize: 32,
       fill: this.textColor,
       stroke: this.textColor,
@@ -25,7 +30,7 @@ export class ScaleText {
 
 
      this.textGround = new Text(text, {
-      fontFamily: "Roboto",
+      fontFamily: "SOTU Pinyin",
       fontSize: 14,
       fill: this.textColor,
       stroke: this.textColor,
@@ -33,7 +38,7 @@ export class ScaleText {
     });
 
     this.baseTextSpace = new Text('10', {
-      fontFamily: "Roboto",
+      fontFamily: "SOTU Pinyin",
       fontSize: 32,
       fill: this.textColorSpace,
       stroke: this.textColorSpace,
@@ -41,7 +46,7 @@ export class ScaleText {
     });
 
      this.textSpace = new Text(text, {
-      fontFamily: "Roboto",
+      fontFamily: "SOTU Pinyin",
       fontSize: 14,
       fill: this.textColorSpace,
       stroke: this.textColorSpace,
@@ -59,6 +64,13 @@ export class ScaleText {
 
     this.container.addChild(this.containerGround, this.containerSpace);
     
+    this.setPosition(x, y);
+  }
+
+  public setPosition(x: number, y: number) {
+    this.baseX = x;
+    this.baseY = y;
+
     this.textGround.x = x + 27;
     this.textGround.y = y;
 

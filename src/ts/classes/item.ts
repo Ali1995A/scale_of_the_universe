@@ -148,9 +148,12 @@ export class Item extends Entity {
   }
 
   createText() {
+    const isMultiline = this.textDatum.title.includes("\n");
+
     const textStyle = {
-      fontFamily: "Roboto",
-      fontSize: 48 * this.visualLocation.titleScale,
+      fontFamily: "SOTU Pinyin",
+      fontSize: (isMultiline ? 34 : 48) * this.visualLocation.titleScale,
+      lineHeight: isMultiline ? 42 * this.visualLocation.titleScale : undefined,
       fill: 0x000000,
       align: "center",
       wordWrap: this.visualLocation.titleWrap,

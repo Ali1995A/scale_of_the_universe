@@ -112,7 +112,7 @@ export class Ring extends Entity {
 
   createText() {
     let baseStyle = {
-      fontFamily: 'Roboto',
+      fontFamily: "SOTU Pinyin",
       fontSize: 40,
       fill: 0x777777,
       align: "center",

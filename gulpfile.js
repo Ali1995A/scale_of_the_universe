@@ -4,7 +4,6 @@ const browserify = require("browserify");
 const watchify = require("watchify");
 const source = require('vinyl-source-stream');
 const tsify = require("tsify");
-const gutil = require("gulp-util");
 const pipeline = require('readable-stream').pipeline;
 const fancy_log = require('fancy-log');
 const closureCompiler = require('google-closure-compiler').gulp();
@@ -20,18 +19,22 @@ const minify = composer(uglifyjs, console);
 const paths = {
     pages: ['src/*.html'],
     data: 'src/data/**/*',
+    fonts: 'src/fonts/**/*',
     bundle: "dist/js"
 };
 
-const watchedBrowserify = watchify(browserify({
-  basedir: '.',
-  debug: true,
-  entries: ['src/ts/main.ts'],
-  project: 'tsconfig.json',
-  cache: {},
-  packageCache: {}
-}).plugin(tsify, {}).on('error', console.log))
-  
+function createBundler({ watch }) {
+  const b = browserify({
+    basedir: '.',
+    debug: true,
+    entries: ['src/ts/main.ts'],
+    project: 'tsconfig.json',
+    cache: {},
+    packageCache: {}
+  }).plugin(tsify, {}).on('error', console.log);
+
+  return watch ? watchify(b) : b;
+}
 
 
 gulp.task("copy-html", function (done) {
@@ -42,6 +45,11 @@ gulp.task("copy-html", function (done) {
 gulp.task("copy-data", function (done) {
   return src(paths.data)
       .pipe(dest("dist/data"))
+});
+
+gulp.task("copy-fonts", function () {
+  return src(paths.fonts)
+    .pipe(dest("dist/fonts"))
 });
 
 gulp.task("serve", function (done) {
@@ -71,20 +79,39 @@ gulp.task('compress', function () {
     );
   });
   
-function bundle() {
+function bundle(bundler) {
   return pipeline(
-    watchedBrowserify.bundle()
+    bundler.bundle()
     .on('error', fancy_log),
     source('bundle.js'),
     dest(paths.bundle)
   );
 }
-gulp.task("default", gulp.parallel(["copy-html", "copy-data", "serve"], () =>{
+
+gulp.task("bundle-once", function () {
+  const bundler = createBundler({ watch: false });
+  return bundle(bundler);
+});
+
+gulp.task("bundle-watch", function () {
+  const bundler = createBundler({ watch: true });
+  bundler.on("update", () => bundle(bundler));
+  bundler.on("log", fancy_log);
+  return bundle(bundler);
+});
+
+gulp.task("watch-static", function () {
   gulp.watch('src/index.html', gulp.parallel(['copy-html']))
   gulp.watch(paths.data, gulp.parallel(['copy-data']))
-  
-  bundle()
-}));
+  gulp.watch(paths.fonts, gulp.parallel(['copy-fonts']))
+});
 
-watchedBrowserify.on("update", bundle);
-watchedBrowserify.on("log", fancy_log);
+gulp.task("build", gulp.series(["copy-html", "copy-data", "copy-fonts", "bundle-once"]));
+gulp.task("build:prod", gulp.series(["build", "compress"]));
+
+gulp.task("dev", gulp.series(
+  gulp.parallel(["copy-html", "copy-data", "copy-fonts"]),
+  gulp.parallel(["serve", "watch-static", "bundle-watch"])
+));
+
+gulp.task("default", gulp.series(["dev"]));

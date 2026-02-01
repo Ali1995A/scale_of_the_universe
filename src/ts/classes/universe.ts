@@ -7,6 +7,7 @@ import { pad } from "../helpers/pad";
 import { map } from "../helpers/map";
 import { getScaleText } from "../helpers/getScaleText";
 import { Slider } from "./slider";
+import { formatTrilingualMultiline, isCjkString } from "../helpers/trilingual";
 
 const { KawaseBlurFilter } = require('pixi-filters');
 
@@ -71,6 +72,21 @@ export class Universe {
     this.container.pivot.y = this.container.height / 2;
 
     // center the rings for display (HACKY)
+    this.displayContainer.x = this.app.screen.width / 2;
+    this.displayContainer.y = this.app.screen.height / 2;
+
+    this.displayContainer.pivot.x = this.displayContainer.width / 2;
+    this.displayContainer.pivot.y = this.displayContainer.height / 2;
+  }
+
+  public resizeViewport() {
+    // Re-center containers after viewport size changes (iPad / WeChat can resize on toolbars).
+    this.container.x = this.app.screen.width / 2;
+    this.container.y = this.app.screen.height / 2;
+
+    this.container.pivot.x = this.container.width / 2;
+    this.container.pivot.y = this.container.height / 2;
+
     this.displayContainer.x = this.app.screen.width / 2;
     this.displayContainer.y = this.app.screen.height / 2;
 
@@ -209,7 +225,7 @@ export class Universe {
   }
 
 
-  async createItems(lowTextures: any, textData: Array<string>) {
+  async createItems(lowTextures: any, textData: Array<string>, englishTextData?: Array<string>) {
 
     const itemSizes = await (await fetch("data/sizes.json")).json();
     const visualLocations = await (await fetch("data/visualLocations.json")).json();
@@ -252,8 +268,23 @@ export class Universe {
       // items above 29 are all normal items
       // see src/data/readme.txt for info
       if (idx >= 29) {
-        textDatum.title = textData[(idx - 29) * 2];
-        textDatum.description = textData[(idx - 29) * 2 + 1];
+        const titleIdx = (idx - 29) * 2;
+        const descIdx = titleIdx + 1;
+
+        const title = textData[titleIdx];
+        const description = textData[descIdx];
+
+        if (englishTextData && isCjkString(title)) {
+          textDatum.title = formatTrilingualMultiline(title, englishTextData[titleIdx]);
+        } else {
+          textDatum.title = title;
+        }
+
+        if (englishTextData && isCjkString(description)) {
+          textDatum.description = formatTrilingualMultiline(description, englishTextData[descIdx]);
+        } else {
+          textDatum.description = description;
+        }
 
         const item = new Item(
           sizeData,
