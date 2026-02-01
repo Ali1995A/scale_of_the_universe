@@ -17,8 +17,6 @@ import {
   ExtraText
 } from "../interfaces";
 
-declare const sa_event: any;
-
 export class Item extends Entity {
   public descriptionGraphics: Container;
 
@@ -183,8 +181,6 @@ export class Item extends Entity {
     const here = this;
     function onButtonDown() {
       here.onClick(here);
-
-      sa_event("item_" + here.sizeData.objectID.toString());
     }
   }
 
@@ -208,8 +204,6 @@ export class Item extends Entity {
     const here = this;
     function onButtonDown() {
       here.onClick(here);
-
-      // sa_event("item_" + here.sizeData.objectID.toString());
     }
 
     sprite.hitArea = new Polygon(points);

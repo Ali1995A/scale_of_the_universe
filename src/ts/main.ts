@@ -179,9 +179,6 @@ function showTitle () {
 
 const dialogPolyfill = require("dialog-polyfill");
 
-// const staticHostingURL = "https://d1w6pmjy03071n.cloudfront.net";
-const staticHostingURL = "http://localhost:3000";
-
 const frozenStar = new Howl({
   src: [
     `sound/frozen_star.webm`,
@@ -269,7 +266,6 @@ muteToggle.onclick = function (ev) {
 const frame = document.getElementById("frame");
 const sotuFrame = document.getElementById("sotu");
 
-const langWrapper = document.getElementById("langWrapper");
 const startWrapper = document.getElementById("startWrapper");
 
 const loader = new PIXI.Loader();
@@ -286,8 +282,6 @@ const loadingSpin:any = document.getElementById("loadingSpin");
 loader.load(async (loader, resources) => {
   loadingSpin.visibility = 'hidden';
   loadingSpin.remove();
-
-  langWrapper.style.visibility = 'visible';
 
   await ensureFontsLoaded();
 
@@ -407,6 +401,28 @@ loader.load(async (loader, resources) => {
   })
   
 
+  const hqToggle:any = document.querySelector('#hqToggle');
+  hqToggle.onclick = function (ev) {
+    ev.preventDefault();
+
+    isHQ = !isHQ;
+
+    if (!isHQ) {
+      highLoader.reset();
+      universe.clearHighQualityTextures()
+      hqToggle.classList.remove('hd-click')
+
+    } else {
+      hqToggle.classList.add('hd-click')
+
+      for (let i = 0; i <= 5; i++) {
+        highLoader.add(`main${i}`, `img/textures/new_items_${i}.json`);
+      }
+    }
+
+    universe.setQuality(isHQ)
+  }
+
   let buttons = document.getElementById('buttons');
 
   
@@ -441,127 +457,60 @@ loader.load(async (loader, resources) => {
     universe.onHandleClicked();
   } 
 
-  window["setLang"] = async (btnClass, langIdx) => {
-    const isChinese = langIdx === 4 || langIdx === 10;
+  // Default to Chinese (Simplified) + English always (no language picker).
+  const DEFAULT_ZH_LANG = 4;
+  const [textData, englishTextData] = await Promise.all([
+    (await (await fetch(`data/languages/l${DEFAULT_ZH_LANG}.txt`)).text())
+      .split("\n")
+      .map((x) => x.replace(/\r?\n|\r/g, "")),
+    (await (await fetch(`data/languages/l0.txt`)).text())
+      .split("\n")
+      .map((x) => x.replace(/\r?\n|\r/g, "")),
+  ]);
 
-    const [textData, englishTextData] = await Promise.all([
-      (await (await fetch(`data/languages/l${langIdx}.txt`)).text())
-        .split("\n")
-        .map((x) => x.replace(/\r?\n|\r/g, "")),
-      isChinese
-        ? (await (await fetch(`data/languages/l0.txt`)).text())
-            .split("\n")
-            .map((x) => x.replace(/\r?\n|\r/g, ""))
-        : Promise.resolve(null),
-    ]);
+  // start us at scale 0
+  slider.setPercent(map(0.1, -35, 27, 0, 1));
 
-    const hqToggle:any = document.querySelector('#hqToggle');
+  app.stage.addChild(
+    universe.container,
+    slider.container,
+    scaleText.container,
+    creditText.container,
+    universe.displayContainer
+  );
 
-      hqToggle.onclick = function (ev) {
-        ev.preventDefault();
+  sotuFrame.appendChild(app.view);
 
-        isHQ = !isHQ;
+  setTrilingualElement(titleEl, textData[619], englishTextData[619]);
+  titleEl.style.opacity = '1';
 
-        if (!isHQ) {
-          highLoader.reset();
-          universe.clearHighQualityTextures()
-        hqToggle.classList.remove('hd-click')
+  const startButtonText = textData[622];
+  const startButton = document.querySelector('#startBtn');
+  setTrilingualElement(startButton, startButtonText, englishTextData[622]);
 
-        } else {
-        hqToggle.classList.add('hd-click')
+  setTrilingualElement(document.getElementById("moveSliderText"), textData[620], englishTextData[620]);
+  setTrilingualElement(document.getElementById("clickObjectText"), textData[621], englishTextData[621]);
 
-          for (let i = 0; i <= 5; i++) {
-            highLoader.add(`main${i}`, `img/textures/new_items_${i}.json`);
-          }
-        }
+  await ensureFontsLoaded();
 
-        universe.setQuality(isHQ)
-      }
+  await universe.createItems(resources, textData, englishTextData || undefined);
 
-    const btns:any = document.querySelectorAll('button.box');
+  slider.setPercent(map(0, -35, 27, 0, 1));
+  universe.prevZoom = 0;
 
-    for (const button of btns) {
-      if (button.classList[1] !== btnClass) {
-        button.style.visibility = 'hidden';
-      }
-    }
+  hasPickedLang = true;
+  if (hasHQ) {
+    universe.hydrateHighTextures(allHighTextures);
+  }
 
+  window["startSOTU"] = () => {
+    modal.close();
+    frame.style.visibility = "visible";
+    
+    fadeInApp.tween().then();
 
-    startWrapper.style.display = 'block';
-
-
-    // start us at scale 0
-    slider.setPercent(map(0.1, -35, 27, 0, 1));
-
-    app.stage.addChild(
-      universe.container,
-      slider.container,
-      scaleText.container,
-      creditText.container,
-      universe.displayContainer
-    );
-
-    sotuFrame.appendChild(app.view);
-
-    langWrapper.style.visibility = "hidden";
-    langWrapper.remove()
-
-    // clearInterval(titleCaroselInterval);
-    // clearTimeout(titleCaroselTimeout);
-    // fadeIn.stop(true);
-    // fadeOut.stop(true);
-    if (isChinese && englishTextData) {
-      setTrilingualElement(titleEl, textData[619], englishTextData[619]);
-    } else {
-      titleEl.innerHTML = textData[619];
-    }
-    titleEl.style.opacity = '1';
-
-    const startButtonText = textData[622];
-    const translationCreditText = textData[623];
-
-    const startButton = document.querySelector('#startBtn');
-    const translationCredit = document.querySelector('#translationCredit');
-
-    if (isChinese && englishTextData) {
-      setTrilingualElement(startButton, startButtonText, englishTextData[622]);
-    } else {
-      startButton.innerHTML = startButtonText;
-    }
-    translationCredit.innerHTML = translationCreditText;
-
-    // document.getElementById('startBtn').innerHTML = textData[619]
-    if (isChinese && englishTextData) {
-      setTrilingualElement(document.getElementById("moveSliderText"), textData[620], englishTextData[620]);
-      setTrilingualElement(document.getElementById("clickObjectText"), textData[621], englishTextData[621]);
-    } else {
-      document.getElementById('moveSliderText').innerHTML = textData[620]
-      document.getElementById('clickObjectText').innerHTML = textData[621]
-    }
-    // document.getElementById('startTitle').innerHtml = textData[619]
-
-    await ensureFontsLoaded();
-
-    await universe.createItems(resources, textData, englishTextData || undefined);
-
-    slider.setPercent(map(0, -35, 27, 0, 1));
-    universe.prevZoom = 0;
-
-    hasPickedLang = true;
-    if (hasHQ) {
-      universe.hydrateHighTextures(allHighTextures);
-    }
-
-    window["startSOTU"] = () => {
-      
-      modal.close();
-      frame.style.visibility = "visible";
-      
-      fadeInApp.tween().then();
-
-      frozenStar.play();
-    }
-  };
+    frozenStar.play();
+  }
 
   
 });
